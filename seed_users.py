@@ -22,7 +22,7 @@ with app.app_context():
     # Create Teacher
     teacher_user = User.query.filter_by(email='teacher@sms.com').first()
     if not teacher_user:
-        teacher_user = User(username='teacher', email='teacher@sms.com', role='teacher')
+        teacher_user = User(username='teacher', email='teacher@sms.com', role='teacher', is_approved=True)
         teacher_user.set_password('teacher123')
         db.session.add(teacher_user)
         db.session.flush()
@@ -39,12 +39,15 @@ with app.app_context():
         db.session.commit()
         print("Teacher user created: teacher / teacher123")
     else:
+        if not teacher_user.is_approved:
+            teacher_user.is_approved = True
+            db.session.commit()
         print("Teacher user already exists")
 
     # Create Student
     student_user = User.query.filter_by(email='student@sms.com').first()
     if not student_user:
-        student_user = User(username='student', email='student@sms.com', role='student')
+        student_user = User(username='student', email='student@sms.com', role='student', is_approved=True)
         student_user.set_password('student123')
         db.session.add(student_user)
         db.session.flush()
@@ -63,4 +66,7 @@ with app.app_context():
         db.session.commit()
         print("Student user created: student / student123")
     else:
+        if not student_user.is_approved:
+            student_user.is_approved = True
+            db.session.commit()
         print("Student user already exists")

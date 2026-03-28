@@ -18,13 +18,18 @@ def init_database():
             admin = User(
                 username='admin',
                 email='admin@sms.edu',
-                role='admin'
+                role='admin',
+                is_approved=True,
             )
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
             print("✅ Admin user created (username: admin, password: admin123)")
         else:
+            if not admin.is_approved:
+                admin.is_approved = True
+                db.session.commit()
+                print("✅ Admin user approved")
             print("ℹ️ Admin user already exists")
         
         # Create sample department if none exists

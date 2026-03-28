@@ -3,29 +3,50 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def normalize_database_url(raw_url):
+    if not raw_url:
+        return None
+
+    database_url = raw_url.strip()
+
+    # Common local SQLite forms used by dev tooling.
+    if database_url.startswith('file:'):
+        sqlite_path = database_url[5:]
+        if sqlite_path.startswith('//'):
+            sqlite_path = sqlite_path[2:]
+        if sqlite_path.startswith('./'):
+            sqlite_path = sqlite_path[2:]
+        return f"sqlite:///{sqlite_path}"
+
+    if database_url.startswith('sqlite:///') or database_url.startswith('sqlite:////'):
+        return database_url
+
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+    # URL encode password if it contains @
+    try:
+        from urllib.parse import quote_plus
+        if '://' in database_url:
+            scheme, rest = database_url.split('://', 1)
+            if '@' in rest:
+                auth_part, host_part = rest.rsplit('@', 1)
+                if ':' in auth_part:
+                    user, password = auth_part.split(':', 1)
+                    if '@' in password:
+                        database_url = f"{scheme}://{user}:{quote_plus(password)}@{host_part}"
+    except Exception:
+        pass
+
+    return database_url
+
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-change-in-production'
     
-    database_url = os.environ.get('DATABASE_URL') or os.environ.get('SUPABASE_DB_URL')
-    
-    if database_url:
-        # Standardize scheme
-        if database_url.startswith('postgres://'):
-            database_url = database_url.replace('postgres://', 'postgresql://', 1)
-            
-        # URL encode password if it contains @
-        try:
-            from urllib.parse import quote_plus
-            if '://' in database_url:
-                scheme, rest = database_url.split('://', 1)
-                if '@' in rest:
-                    auth_part, host_part = rest.rsplit('@', 1)
-                    if ':' in auth_part:
-                        user, password = auth_part.split(':', 1)
-                        if '@' in password:
-                            database_url = f"{scheme}://{user}:{quote_plus(password)}@{host_part}"
-        except:
-            pass
+    database_url = normalize_database_url(
+        os.environ.get('DATABASE_URL') or os.environ.get('SUPABASE_DB_URL')
+    )
 
     SQLALCHEMY_DATABASE_URI = database_url or 'sqlite:///site.db'
     
@@ -41,16 +62,19 @@ class Config:
             SQLALCHEMY_DATABASE_URI += ('&' if '?' in SQLALCHEMY_DATABASE_URI else '?') + 'sslmode=require'
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 5,            # Small pool to avoid exhausting Supabase connections
-        'max_overflow': 10,
-        'pool_recycle': 300,       # Recycle connections every 5 mins
-        'pool_pre_ping': True,     # Test connection before using
-        'connect_args': {
-            'sslmode': 'require',
-            'connect_timeout': 10
+    if SQLALCHEMY_DATABASE_URI and 'postgresql' in SQLALCHEMY_DATABASE_URI:
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_size': 5,            # Small pool to avoid exhausting Supabase connections
+            'max_overflow': 10,
+            'pool_recycle': 300,       # Recycle connections every 5 mins
+            'pool_pre_ping': True,     # Test connection before using
+            'connect_args': {
+                'sslmode': 'require',
+                'connect_timeout': 10
+            }
         }
-    }
+    else:
+        SQLALCHEMY_ENGINE_OPTIONS = {}
     
     # Upload configurations
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app/static/uploads')

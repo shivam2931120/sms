@@ -10,7 +10,8 @@ with app.app_context():
         admin = User(
             username='admin',
             email='admin@sms.com',
-            role='admin'
+            role='admin',
+            is_approved=True,
         )
         admin.set_password('admin123')
         db.session.add(admin)
@@ -19,4 +20,8 @@ with app.app_context():
         print("Email: admin@sms.com")
         print("Password: admin123")
     else:
+        if not admin.is_approved:
+            admin.is_approved = True
+            db.session.commit()
+            print("Admin user approved.")
         print("Admin user already exists.")
