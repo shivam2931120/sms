@@ -17,6 +17,8 @@ def patch_database_schema():
             with db.engine.connect() as conn:
                 if 'is_approved' not in user_columns:
                     conn.execute(text("ALTER TABLE users ADD COLUMN is_approved BOOLEAN DEFAULT FALSE"))
+                if db.engine.dialect.name == 'postgresql' and 'password_hash' in user_columns:
+                    conn.execute(text("ALTER TABLE users ALTER COLUMN password_hash TYPE VARCHAR(255)"))
                 conn.execute(text("UPDATE users SET is_approved = TRUE WHERE is_approved IS NULL"))
                 conn.commit()
                 print("Database schema patched: verified 'is_approved' column.")

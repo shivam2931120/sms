@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Shikshan</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/shikshan.png') }}">
@@ -146,6 +147,10 @@
                         class="{% if request.endpoint == 'student.dashboard' %}active{% endif %}">
                         <i class="bi bi-grid-1x2-fill"></i> Dashboard
                     </a></li>
+                <li><a href="{{ url_for('student.profile') }}"
+                        class="{% if request.endpoint == 'student.profile' %}active{% endif %}">
+                        <i class="bi bi-person-lines-fill"></i> Profile
+                    </a></li>
                 <li><a href="{{ url_for('student.timetable') }}"
                         class="{% if 'timetable' in request.endpoint %}active{% endif %}">
                         <i class="bi bi-calendar-week"></i> Timetable
@@ -182,9 +187,16 @@
         <div id="content">
             <!-- Top Header -->
             <nav class="top-header">
-                <button id="sidebarToggle" class="d-lg-none">
-                    <i class="bi bi-list"></i>
-                </button>
+                <div class="header-left">
+                    <button type="button" id="sidebarToggle" class="header-icon-btn d-lg-none"
+                        aria-label="Open sidebar" title="Open sidebar">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <button type="button" id="sidebarCollapse" class="header-icon-btn d-none d-lg-inline-flex"
+                        aria-label="Collapse sidebar" title="Collapse sidebar">
+                        <i id="sidebarCollapseIcon" class="bi bi-chevron-left"></i>
+                    </button>
+                </div>
 
                 <div class="header-right">
                     <span class="user-info">
@@ -216,45 +228,131 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        document.querySelectorAll('form').forEach(form => {
+            const method = (form.getAttribute('method') || 'GET').toUpperCase();
+            if (method === 'POST' && csrfToken && !form.querySelector('input[name="_csrf_token"]')) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = '_csrf_token';
+                input.value = csrfToken;
+                form.appendChild(input);
+            }
+        });
+
+        document.querySelectorAll('[data-login][data-password]').forEach(button => {
+            button.addEventListener('click', () => {
+                const loginInput = document.getElementById('login_id');
+                const passwordInput = document.getElementById('password');
+                if (loginInput && passwordInput) {
+                    loginInput.value = button.dataset.login;
+                    passwordInput.value = button.dataset.password;
+                    loginInput.focus();
+                }
+            });
+        });
+
         // Sidebar Toggle
         const sidebar = document.getElementById('sidebar');
         const content = document.getElementById('content');
         const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarCollapse = document.getElementById('sidebarCollapse');
+        const sidebarCollapseIcon = document.getElementById('sidebarCollapseIcon');
         const body = document.body;
 
-        // Create overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'sidebar-overlay';
-        body.appendChild(overlay);
+        if (sidebar && content) {
+            // Create overlay
+            const overlay = document.createElement('div');
+            overlay.className = 'sidebar-overlay';
+            body.appendChild(overlay);
 
-        function toggleSidebar() {
-            sidebar.classList.toggle('show');
-            overlay.classList.toggle('active');
-        }
+            function toggleSidebar() {
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('active');
+            }
 
-        if (sidebarToggle) {
-            sidebarToggle.addEventListener('click', function (e) {
-                e.stopPropagation();
-                toggleSidebar();
-            });
-        }
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    toggleSidebar();
+                });
+            }
 
-        // Close sidebar when clicking overlay
-        overlay.addEventListener('click', function () {
-            sidebar.classList.remove('show');
-            overlay.classList.remove('active');
-        });
+            function isDesktopLayout() {
+                return window.matchMedia('(min-width: 992px)').matches;
+            }
 
-        // Close sidebar when clicking a link on mobile
-        const navLinks = sidebar.querySelectorAll('a');
-        navLinks.forEach(link => {
-            link.addEventListener('click', () => {
-                if (window.innerWidth < 992) {
-                    sidebar.classList.remove('show');
-                    overlay.classList.remove('active');
+            function setSidebarCollapsed(collapsed, persist = true) {
+                if (!isDesktopLayout()) {
+                    sidebar.classList.remove('collapsed');
+                    content.classList.remove('expanded');
+                    return;
+                }
+
+                sidebar.classList.toggle('collapsed', collapsed);
+                content.classList.toggle('expanded', collapsed);
+
+                if (sidebarCollapse && sidebarCollapseIcon) {
+                    sidebarCollapse.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+                    sidebarCollapse.setAttribute('title', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+                    sidebarCollapseIcon.className = collapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left';
+                }
+
+                if (persist) {
+                    saveSidebarCollapsedPreference(collapsed);
+                }
+            }
+
+            function getSidebarCollapsedPreference() {
+                try {
+                    return localStorage.getItem('sidebarCollapsed') === 'true';
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function saveSidebarCollapsedPreference(collapsed) {
+                try {
+                    localStorage.setItem('sidebarCollapsed', collapsed ? 'true' : 'false');
+                } catch (error) {
+                    // Storage can be unavailable in restricted browser contexts.
+                }
+            }
+
+            sidebar.querySelectorAll('.sidebar-nav a, .logout-btn').forEach(link => {
+                const label = link.textContent.trim();
+                if (label && !link.getAttribute('title')) {
+                    link.setAttribute('title', label);
                 }
             });
-        });
+
+            setSidebarCollapsed(getSidebarCollapsedPreference(), false);
+
+            if (sidebarCollapse) {
+                sidebarCollapse.addEventListener('click', () => {
+                    setSidebarCollapsed(!sidebar.classList.contains('collapsed'));
+                });
+            }
+
+            window.addEventListener('resize', () => {
+                setSidebarCollapsed(getSidebarCollapsedPreference(), false);
+            });
+
+            overlay.addEventListener('click', function () {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('active');
+            });
+
+            const navLinks = sidebar.querySelectorAll('a');
+            navLinks.forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 992) {
+                        sidebar.classList.remove('show');
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+        }
     </script>
 </body>
 

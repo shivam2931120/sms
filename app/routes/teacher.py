@@ -16,14 +16,39 @@ def teacher_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def current_teacher_or_redirect():
+    teacher_profile = Teacher.query.filter_by(user_id=current_user.id).first()
+    if not teacher_profile:
+        flash('Teacher profile not found.', 'warning')
+        return None, redirect(url_for('main.index'))
+    return teacher_profile, None
+
+def assigned_class_and_subject_ids(teacher_profile):
+    timetable_entries = TimeTable.query.filter_by(teacher_id=teacher_profile.id).all()
+    class_ids = {entry.class_id for entry in timetable_entries}
+    subject_ids = {entry.subject_id for entry in timetable_entries}
+    return class_ids, subject_ids
+
+def parse_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+@teacher.route('')
+@teacher.route('/')
+@login_required
+@teacher_required
+def index():
+    return redirect(url_for('teacher.dashboard'))
+
 @teacher.route('/dashboard')
 @login_required
 @teacher_required
 def dashboard():
-    teacher_profile = Teacher.query.filter_by(user_id=current_user.id).first()
-    if not teacher_profile:
-        flash('Teacher profile not found.', 'warning')
-        return redirect(url_for('main.index'))
+    teacher_profile, response = current_teacher_or_redirect()
+    if response:
+        return response
     
     today = date.today()
     day_name = today.strftime('%A')
@@ -50,7 +75,9 @@ def dashboard():
 @login_required
 @teacher_required
 def schedule():
-    teacher_profile = Teacher.query.filter_by(user_id=current_user.id).first()
+    teacher_profile, response = current_teacher_or_redirect()
+    if response:
+        return response
     timetable = TimeTable.query.filter_by(teacher_id=teacher_profile.id).order_by(TimeTable.day_of_week, TimeTable.start_time).all()
     
     # Group by day
@@ -66,11 +93,12 @@ def schedule():
 @login_required
 @teacher_required
 def mark_attendance():
-    teacher_profile = Teacher.query.filter_by(user_id=current_user.id).first()
+    teacher_profile, response = current_teacher_or_redirect()
+    if response:
+        return response
     
     # Get classes this teacher is assigned to
-    timetable_entries = TimeTable.query.filter_by(teacher_id=teacher_profile.id).all()
-    class_ids = list(set([t.class_id for t in timetable_entries]))
+    class_ids, _ = assigned_class_and_subject_ids(teacher_profile)
     classes = Class.query.filter(Class.id.in_(class_ids)).all() if class_ids else []
     
     selected_class = request.args.get('class_id')
@@ -79,6 +107,10 @@ def mark_attendance():
     existing_attendance = {}
     
     if selected_class:
+        selected_class_id = parse_int(selected_class)
+        if selected_class_id not in class_ids:
+            flash('You are not assigned to that class.', 'danger')
+            return redirect(url_for('teacher.mark_attendance'))
         students = Student.query.filter_by(class_id=selected_class).order_by(Student.roll_no).all()
         date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
         for s in students:
@@ -89,6 +121,10 @@ def mark_attendance():
     if request.method == 'POST':
         date_obj = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
         class_id = request.form['class_id']
+        class_id_int = parse_int(class_id)
+        if class_id_int not in class_ids:
+            flash('You are not assigned to that class.', 'danger')
+            return redirect(url_for('teacher.mark_attendance'))
         students = Student.query.filter_by(class_id=class_id).all()
         
         for student in students:
@@ -116,12 +152,12 @@ def mark_attendance():
 @login_required
 @teacher_required
 def enter_marks():
-    teacher_profile = Teacher.query.filter_by(user_id=current_user.id).first()
+    teacher_profile, response = current_teacher_or_redirect()
+    if response:
+        return response
     
     # Get classes and subjects
-    timetable_entries = TimeTable.query.filter_by(teacher_id=teacher_profile.id).all()
-    class_ids = list(set([t.class_id for t in timetable_entries]))
-    subject_ids = list(set([t.subject_id for t in timetable_entries]))
+    class_ids, subject_ids = assigned_class_and_subject_ids(teacher_profile)
     
     classes = Class.query.filter(Class.id.in_(class_ids)).all() if class_ids else []
     subjects = Subject.query.filter(Subject.id.in_(subject_ids)).all() if subject_ids else []
@@ -134,6 +170,11 @@ def enter_marks():
     existing_marks = {}
     
     if selected_class and selected_subject and selected_exam:
+        selected_class_id = parse_int(selected_class)
+        selected_subject_id = parse_int(selected_subject)
+        if selected_class_id not in class_ids or selected_subject_id not in subject_ids:
+            flash('You are not assigned to that class or subject.', 'danger')
+            return redirect(url_for('teacher.enter_marks'))
         students = Student.query.filter_by(class_id=selected_class).order_by(Student.roll_no).all()
         for s in students:
             mark = Mark.query.filter_by(student_id=s.id, subject_id=selected_subject, exam_id=selected_exam).first()
@@ -145,6 +186,11 @@ def enter_marks():
         subject_id = request.form['subject_id']
         exam_id = request.form['exam_id']
         max_score = float(request.form.get('max_score', 100))
+        class_id_int = parse_int(class_id)
+        subject_id_int = parse_int(subject_id)
+        if class_id_int not in class_ids or subject_id_int not in subject_ids:
+            flash('You are not assigned to that class or subject.', 'danger')
+            return redirect(url_for('teacher.enter_marks'))
         
         students = Student.query.filter_by(class_id=class_id).all()
         

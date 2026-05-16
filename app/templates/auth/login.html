@@ -33,5 +33,20 @@
             <a href="#" class="text-secondary small ms-2">Forgot Password?</a>
         </div>
     </form>
+    {% if config.SHOW_DEMO_CREDENTIALS and demo_accounts %}
+    <div class="demo-login-panel">
+        <div class="demo-login-title">Demo Credentials</div>
+        <div class="demo-login-grid">
+            {% for account in demo_accounts %}
+            <button type="button" class="demo-login-option" data-login="{{ account.login }}"
+                data-password="{{ account.password }}">
+                <span>{{ account.role }}</span>
+                <code>{{ account.login }}</code>
+                <small>{{ account.password }}</small>
+            </button>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

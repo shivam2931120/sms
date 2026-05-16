@@ -48,8 +48,8 @@
                             </span> / {{ b.total_copies }}
                         </td>
                         <td>
-                            <form action="{{ url_for('admin.delete_book', id=b.id) if 'admin.delete_book' else '#' }}"
-                                method="POST" class="d-inline" onsubmit="return confirm('Delete?');">
+                            <form action="{{ url_for('admin.delete_book', id=b.id) }}" method="POST" class="d-inline"
+                                onsubmit="return confirm('Delete?');">
                                 <button type="submit" class="btn btn-sm btn-outline-danger"><i
                                         class="bi bi-trash"></i></button>
                             </form>

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from app.models import User
 from app import db
+from app.demo import DEMO_ACCOUNTS
 
 auth = Blueprint('auth', __name__)
 
@@ -17,44 +18,33 @@ def login():
         return redirect(url_for('main.index'))
 
     if request.method == 'POST':
-        login_id = request.form.get('login_id')
-        password = request.form.get('password')
-        
-        print(f"DEBUG: Login attempt for '{login_id}'") # Debug log
+        login_id = (request.form.get('login_id') or '').strip()
+        password = request.form.get('password') or ''
         
         # specific for postgresql (ilike), but generic sqlalchemy 'ilike' usually works
         user = User.query.filter((User.email.ilike(login_id)) | (User.username.ilike(login_id))).first()
         
-        if user:
-             print(f"DEBUG: User found: {user.username}, Role: {user.role}")
-             if user.check_password(password):
-                 if not user.is_approved:
-                     print("DEBUG: Account not approved.")
-                     flash('Account pending approval. Please wait for an administrator to verify your details.', 'warning')
-                     return render_template('auth/login.html')
+        if user and user.check_password(password):
+            if not user.is_approved:
+                flash('Account pending approval. Please wait for an administrator to verify your details.', 'warning')
+                return render_template('auth/login.html', demo_accounts=DEMO_ACCOUNTS)
 
-                 print("DEBUG: Password correct. Logging in...")
-                 login_user(user)
-                 print(f"DEBUG: User {user.username} logged in. Current User: {current_user}")
-                 flash('Login successful!', 'success')
-                 
-                 # Redirect based on role
-                 if user.role == 'admin':
-                     return redirect(url_for('admin.dashboard'))
-                 elif user.role == 'teacher':
-                     return redirect(url_for('teacher.dashboard'))
-                 elif user.role == 'student':
-                     return redirect(url_for('student.dashboard'))
-                 
-                 return redirect(url_for('main.index'))
-             else:
-                 print("DEBUG: Password INCORRECT.")
-        else:
-             print("DEBUG: User NOT found.")
+            login_user(user)
+            flash('Login successful!', 'success')
+
+            # Redirect based on role
+            if user.role == 'admin':
+                return redirect(url_for('admin.dashboard'))
+            elif user.role == 'teacher':
+                return redirect(url_for('teacher.dashboard'))
+            elif user.role == 'student':
+                return redirect(url_for('student.dashboard'))
+
+            return redirect(url_for('main.index'))
 
         flash('Login Unsuccessful. Please check email and password', 'danger')
             
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', demo_accounts=DEMO_ACCOUNTS)
 
 @auth.before_app_request
 def check_approval_status():
@@ -69,11 +59,23 @@ def register():
         return redirect(url_for('main.index'))
         
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        username = (request.form.get('username') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        password = request.form.get('password') or ''
+        confirm_password = request.form.get('confirm_password') or ''
         role = request.form.get('role')
+
+        if role not in {'student', 'teacher'}:
+            flash('Invalid account role selected.', 'danger')
+            return render_template('auth/register.html')
+
+        if not username or not email or not password:
+            flash('Please fill in all required fields.', 'danger')
+            return render_template('auth/register.html')
+
+        if len(password) < 8:
+            flash('Password must be at least 8 characters long.', 'danger')
+            return render_template('auth/register.html')
         
         if password != confirm_password:
             flash('Passwords do not match.', 'danger')

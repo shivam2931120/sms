@@ -1,7 +1,9 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, Response, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, Response
 from flask_login import login_required, current_user
 from app.models import User, Student, Teacher, Class, Subject, Exam, Attendance, Fee, Announcement, Book, BookIssue, TimeTable, Department, Event, Homework, IDCard
 from app import db
+from app.school import get_school_details
+from app.uploads import save_student_photo
 from datetime import datetime, timedelta
 import io
 import csv
@@ -21,6 +23,13 @@ def admin_required(f):
 # ============================================
 # DASHBOARD WITH CHARTS DATA
 # ============================================
+@admin.route('')
+@admin.route('/')
+@login_required
+@admin_required
+def index():
+    return redirect(url_for('admin.dashboard'))
+
 @admin.route('/dashboard')
 @login_required
 @admin_required
@@ -136,15 +145,11 @@ def edit_student(id):
         
         # Handle photo upload
         if 'photo' in request.files:
-            photo = request.files['photo']
-            if photo and photo.filename:
-                import os
-                from werkzeug.utils import secure_filename
-                filename = secure_filename(f"student_{student.id}_{photo.filename}")
-                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'photos', filename)
-                os.makedirs(os.path.dirname(upload_path), exist_ok=True)
-                photo.save(upload_path)
-                student.photo_file = filename
+            try:
+                save_student_photo(student, request.files.get('photo'))
+            except ValueError as error:
+                flash(str(error), 'danger')
+                return render_template('admin/students/form.html', classes=classes, departments=departments, student=student)
         
         db.session.commit()
         flash('Student updated successfully!', 'success')
@@ -156,7 +161,7 @@ def edit_student(id):
 @admin_required
 def delete_student(id):
     student = Student.query.get_or_404(id)
-    user = User.query.get(student.user_id)
+    user = db.session.get(User, student.user_id)
     db.session.delete(student)
     if user:
         db.session.delete(user)
@@ -246,7 +251,7 @@ def edit_teacher(id):
 @admin_required
 def delete_teacher(id):
     teacher = Teacher.query.get_or_404(id)
-    user = User.query.get(teacher.user_id)
+    user = db.session.get(User, teacher.user_id)
     db.session.delete(teacher)
     if user:
         db.session.delete(user)
@@ -672,7 +677,8 @@ def issue_book():
     books = Book.query.filter(Book.available_copies > 0).all()
     students = Student.query.all()
     if request.method == 'POST':
-        book = Book.query.get(request.form['book_id'])
+        book_id = request.form.get('book_id', type=int)
+        book = db.session.get(Book, book_id) if book_id else None
         if book and book.available_copies > 0:
             issue = BookIssue(
                 book_id=book.id,
@@ -697,6 +703,19 @@ def return_book(id):
     db.session.commit()
     flash('Book returned!', 'success')
     return redirect(url_for('admin.library_issues'))
+
+@admin.route('/library/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_book(id):
+    book = Book.query.get_or_404(id)
+    if book.issues:
+        flash('Books with issue history cannot be deleted.', 'warning')
+        return redirect(url_for('admin.library'))
+    db.session.delete(book)
+    db.session.commit()
+    flash('Book deleted!', 'success')
+    return redirect(url_for('admin.library'))
 
 @admin.route('/library/issues')
 @login_required
@@ -759,6 +778,7 @@ def report_card(student_id):
     
     student = Student.query.get_or_404(student_id)
     marks = student.marks
+    school = get_school_details()
     
     buffer = io.BytesIO()
     p = canvas.Canvas(buffer, pagesize=A4)
@@ -768,7 +788,9 @@ def report_card(student_id):
     p.setFont("Helvetica-Bold", 20)
     p.drawCentredString(width/2, height - 50, "REPORT CARD")
     p.setFont("Helvetica", 12)
-    p.drawCentredString(width/2, height - 70, "Student Management System")
+    p.drawCentredString(width/2, height - 70, school['name'])
+    if school['address']:
+        p.drawCentredString(width/2, height - 88, school['address'])
     
     # Student Info
     p.setFont("Helvetica-Bold", 12)
@@ -777,7 +799,7 @@ def report_card(student_id):
     p.drawString(50, height - 160, f"Class: {student.enrolled_class.grade}-{student.enrolled_class.section}" if student.enrolled_class else "N/A")
     
     # Marks Table
-    y = height - 200
+    y = height - 215
     p.setFont("Helvetica-Bold", 10)
     p.drawString(50, y, "Subject")
     p.drawString(200, y, "Exam")

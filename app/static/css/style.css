@@ -106,8 +106,8 @@ a:hover {
    Sidebar
    ============================================ */
 .sidebar {
-    width: 260px;
-    min-width: 260px;
+    width: var(--sidebar-width);
+    min-width: var(--sidebar-width);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     position: fixed;
@@ -119,6 +119,12 @@ a:hover {
     z-index: 1000;
     overflow-x: hidden;
     overflow-y: auto;
+    transition: width 0.3s ease, min-width 0.3s ease, transform 0.3s ease-in-out;
+}
+
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed);
+    min-width: var(--sidebar-collapsed);
 }
 
 .sidebar-header {
@@ -145,6 +151,20 @@ a:hover {
     letter-spacing: 0.05em;
     text-transform: uppercase;
     color: #ffffff;
+}
+
+.sidebar.collapsed .sidebar-header {
+    padding: 1.25rem 0.75rem;
+}
+
+.sidebar.collapsed .sidebar-header img {
+    max-height: 38px;
+    margin-bottom: 0;
+}
+
+.sidebar.collapsed .sidebar-header h3,
+.sidebar.collapsed .role-badge {
+    display: none;
 }
 
 .role-badge {
@@ -177,6 +197,10 @@ a:hover {
     letter-spacing: 0.15em;
 }
 
+.sidebar.collapsed .sidebar-nav .nav-section {
+    display: none;
+}
+
 .sidebar-nav a {
     display: flex;
     align-items: center;
@@ -188,6 +212,7 @@ a:hover {
     border-right: 3px solid transparent;
     /* Changed to right for cleaner look */
     white-space: nowrap;
+    overflow: hidden;
 }
 
 .sidebar-nav a:hover {
@@ -210,6 +235,17 @@ a:hover {
     transition: color 0.2s;
 }
 
+.sidebar.collapsed .sidebar-nav a {
+    justify-content: center;
+    padding: 0.95rem 0;
+    font-size: 0;
+}
+
+.sidebar.collapsed .sidebar-nav a i {
+    font-size: 1.2rem;
+    margin-right: 0;
+}
+
 .sidebar-nav a:hover i,
 .sidebar-nav a.active i {
     color: var(--accent-primary);
@@ -219,6 +255,10 @@ a:hover {
 .sidebar-footer {
     padding: 1.5rem;
     border-top: 1px solid var(--border-color);
+}
+
+.sidebar.collapsed .sidebar-footer {
+    padding: 1rem 0.75rem;
 }
 
 .logout-btn {
@@ -242,6 +282,16 @@ a:hover {
 
 .logout-btn i {
     margin-right: 0.5rem;
+}
+
+.sidebar.collapsed .logout-btn {
+    font-size: 0;
+    padding: 0.9rem 0;
+}
+
+.sidebar.collapsed .logout-btn i {
+    font-size: 1.15rem;
+    margin-right: 0;
 }
 
 /* ============================================
@@ -273,15 +323,35 @@ a:hover {
     z-index: 100;
 }
 
-.top-header #sidebarToggle {
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.header-icon-btn {
+    align-items: center;
     background: transparent;
     border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    cursor: pointer;
-    padding: 0.5rem 0.75rem;
     border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    font-size: 1.25rem;
+    height: 42px;
+    justify-content: center;
+    padding: 0;
     transition: all 0.2s;
+    width: 42px;
+}
+
+.header-icon-btn:hover {
+    background: var(--bg-card);
+    border-color: var(--text-muted);
+}
+
+.top-header #sidebarToggle {
+    cursor: pointer;
 }
 
 .top-header #sidebarToggle:hover {
@@ -634,9 +704,10 @@ a:hover {
    ============================================ */
 body.public-layout {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+    padding: 2rem 1rem;
 }
 
 .login-card {
@@ -665,6 +736,98 @@ body.public-layout {
     letter-spacing: -0.02em;
 }
 
+.demo-login-panel {
+    border-top: 1px solid var(--border-color);
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+}
+
+.demo-login-title {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+}
+
+.demo-login-grid {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.demo-login-option {
+    align-items: center;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: grid;
+    gap: 0.25rem;
+    grid-template-columns: minmax(70px, 0.75fr) minmax(0, 1.35fr) auto;
+    padding: 0.7rem 0.85rem;
+    text-align: left;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.demo-login-option:hover {
+    background: var(--bg-card);
+    border-color: var(--text-muted);
+}
+
+.demo-login-option span {
+    font-weight: 700;
+}
+
+.demo-login-option code {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+}
+
+.demo-login-option small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.profile-photo {
+    aspect-ratio: 1;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    height: 150px;
+    object-fit: cover;
+    width: 150px;
+}
+
+.profile-meta {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.profile-meta div {
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.75rem;
+}
+
+.profile-meta span {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.profile-meta strong {
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    text-align: right;
+}
+
 /* ============================================
    Sidebar Overlay
    ============================================ */
@@ -680,9 +843,58 @@ body.public-layout {
     .sidebar {
         transform: translateX(-100%);
         width: 100%;
+        min-width: 0;
         max-width: 280px;
         transition: transform 0.3s ease-in-out;
         box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .sidebar.collapsed {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .sidebar.collapsed .sidebar-header {
+        padding: 2rem 1.5rem;
+    }
+
+    .sidebar.collapsed .sidebar-header img {
+        max-height: 50px;
+        margin-bottom: 1rem;
+    }
+
+    .sidebar.collapsed .sidebar-header h3,
+    .sidebar.collapsed .role-badge {
+        display: block;
+    }
+
+    .sidebar.collapsed .sidebar-nav .nav-section {
+        display: block;
+    }
+
+    .sidebar.collapsed .sidebar-nav a {
+        justify-content: flex-start;
+        padding: 0.85rem 1.75rem;
+        font-size: 0.9rem;
+    }
+
+    .sidebar.collapsed .sidebar-nav a i {
+        font-size: 1.1rem;
+        margin-right: 1rem;
+    }
+
+    .sidebar.collapsed .sidebar-footer {
+        padding: 1.5rem;
+    }
+
+    .sidebar.collapsed .logout-btn {
+        font-size: inherit;
+        padding: 1rem;
+    }
+
+    .sidebar.collapsed .logout-btn i {
+        font-size: inherit;
+        margin-right: 0.5rem;
     }
 
     .sidebar.show {
@@ -743,6 +955,9 @@ body.public-layout {
         margin: 1rem;
     }
 
+    .demo-login-option {
+        grid-template-columns: 1fr;
+    }
 
 }
 

@@ -1,4 +1,5 @@
 import os
+import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -42,7 +43,12 @@ def normalize_database_url(raw_url):
     return database_url
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-change-in-production'
+    FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
+    SECRET_KEY = os.environ.get('SECRET_KEY')
+    if not SECRET_KEY:
+        if FLASK_ENV == 'production':
+            raise RuntimeError('SECRET_KEY must be set in production.')
+        SECRET_KEY = secrets.token_urlsafe(32)
     
     database_url = normalize_database_url(
         os.environ.get('DATABASE_URL') or os.environ.get('SUPABASE_DB_URL')
@@ -79,6 +85,25 @@ class Config:
     # Upload configurations
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'app/static/uploads')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
+
+    # Demo credentials are shown by default for local demo installs only.
+    SHOW_DEMO_CREDENTIALS = os.environ.get('SHOW_DEMO_CREDENTIALS', True)
+    if isinstance(SHOW_DEMO_CREDENTIALS, str):
+        SHOW_DEMO_CREDENTIALS = SHOW_DEMO_CREDENTIALS.lower() in {'1', 'true', 'yes', 'on'}
+
+    # Email settings. Leave credentials empty until a provider is configured.
+    SMTP_HOST = os.environ.get('SMTP_HOST', '')
+    SMTP_PORT = int(os.environ.get('SMTP_PORT', '587'))
+    SMTP_USERNAME = os.environ.get('SMTP_USERNAME', '')
+    SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
+    SMTP_USE_TLS = os.environ.get('SMTP_USE_TLS', 'true').lower() in {'1', 'true', 'yes', 'on'}
+    MAIL_FROM = os.environ.get('MAIL_FROM', SMTP_USERNAME)
+
+    # Razorpay settings. Payment capture is not enabled until these are filled.
+    RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+    RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+    RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
+    RAZORPAY_CURRENCY = os.environ.get('RAZORPAY_CURRENCY', 'INR')
     
     # Session
     SESSION_COOKIE_SECURE = os.environ.get('FLASK_ENV') == 'production'

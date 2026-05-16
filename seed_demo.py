@@ -5,6 +5,7 @@ Run: DATABASE_URL=sqlite:///site.db python seed_demo.py
 """
 from app import create_app, db
 from app.models import User, Student, Teacher, Department, Class, Subject, Attendance
+from app.demo import DEMO_ACCOUNTS
 from datetime import date, timedelta
 import random
 
@@ -67,20 +68,22 @@ def seed_database():
         print(f"✓ Created {len(subject_data)} subjects")
         
         # ============ ADMIN USER ============
-        admin = User.query.filter_by(email='admin@demo.com').first()
+        admin = User.query.filter_by(email=DEMO_ACCOUNTS[0]['login']).first()
         if not admin:
             admin = User(
                 username='admin',
-                email='admin@demo.com',
+                email=DEMO_ACCOUNTS[0]['login'],
                 role='admin',
                 is_approved=True
             )
-            admin.set_password('admin123')
             db.session.add(admin)
-            db.session.commit()
             print("✓ Admin user created")
-            print(f"  ├─ Email: admin@demo.com")
-            print(f"  └─ Password: admin123")
+        admin.role = 'admin'
+        admin.is_approved = True
+        admin.set_password(DEMO_ACCOUNTS[0]['password'])
+        db.session.commit()
+        print(f"  ├─ Email: {DEMO_ACCOUNTS[0]['login']}")
+        print(f"  └─ Password: {DEMO_ACCOUNTS[0]['password']}")
         
         # ============ TEACHER USERS ============
         teachers_data = [
@@ -102,7 +105,13 @@ def seed_database():
                 teacher_user.set_password('teacher123')
                 db.session.add(teacher_user)
                 db.session.flush()
-                
+            else:
+                teacher_user.role = 'teacher'
+                teacher_user.is_approved = True
+                teacher_user.set_password('teacher123')
+
+            teacher = Teacher.query.filter_by(user_id=teacher_user.id).first()
+            if not teacher:
                 teacher = Teacher(
                     user_id=teacher_user.id,
                     first_name=first_name,
@@ -112,8 +121,12 @@ def seed_database():
                     joining_date=date.today() - timedelta(days=365)
                 )
                 db.session.add(teacher)
-                db.session.commit()
-                print(f"  ├─ {first_name} {last_name} ({username}@demo.com) / teacher123")
+            else:
+                teacher.first_name = first_name
+                teacher.last_name = last_name
+                teacher.department_id = depts[0].id
+            db.session.commit()
+            print(f"  ├─ {first_name} {last_name} ({email}) / teacher123")
         
         # ============ STUDENT USERS ============
         students_data = [
@@ -137,7 +150,13 @@ def seed_database():
                 student_user.set_password('student123')
                 db.session.add(student_user)
                 db.session.flush()
-                
+            else:
+                student_user.role = 'student'
+                student_user.is_approved = True
+                student_user.set_password('student123')
+
+            student = Student.query.filter_by(user_id=student_user.id).first()
+            if not student:
                 student = Student(
                     user_id=student_user.id,
                     first_name=first_name,
@@ -154,8 +173,15 @@ def seed_database():
                     address='Demo Address, City'
                 )
                 db.session.add(student)
-                db.session.commit()
-                print(f"  ├─ {first_name} {last_name} (Roll: {roll_no}, {username}@demo.com) / student123")
+            else:
+                student.first_name = first_name
+                student.last_name = last_name
+                student.roll_no = roll_no
+                student.enrollment_no = f'ENR{roll_no}2024'
+                student.class_id = classes[0].id
+                student.department_id = depts[0].id
+            db.session.commit()
+            print(f"  ├─ {first_name} {last_name} (Roll: {roll_no}, {email}) / student123")
         
         # ============ SAMPLE ATTENDANCE DATA ============
         print("\n✓ Adding sample attendance data...")
@@ -181,12 +207,12 @@ def seed_database():
         print("\n📋 DASHBOARD LOGIN CREDENTIALS:\n")
         
         print("👨‍💼 ADMIN DASHBOARD")
-        print("   URL: http://127.0.0.1:5000/admin")
-        print("   Email: admin@demo.com")
-        print("   Password: admin123\n")
+        print("   URL: http://127.0.0.1:5000/admin/dashboard")
+        print(f"   Email: {DEMO_ACCOUNTS[0]['login']}")
+        print(f"   Password: {DEMO_ACCOUNTS[0]['password']}\n")
         
         print("👨‍🏫 TEACHER DASHBOARD")
-        print("   URL: http://127.0.0.1:5000/teacher")
+        print("   URL: http://127.0.0.1:5000/teacher/dashboard")
         print("   Sample Teachers:")
         for username, email, first_name, last_name in teachers_data:
             print(f"   ├─ Email: {email}")
@@ -194,7 +220,7 @@ def seed_database():
         print()
         
         print("👨‍🎓 STUDENT DASHBOARD")
-        print("   URL: http://127.0.0.1:5000/student")
+        print("   URL: http://127.0.0.1:5000/student/dashboard")
         print("   Sample Students:")
         for username, email, first_name, last_name, roll_no in students_data:
             print(f"   ├─ Email: {email} (Roll: {roll_no})")

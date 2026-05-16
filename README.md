@@ -64,15 +64,25 @@ cp .env.example .env
 
 5. Initialize database:
 ```bash
-flask db init
-flask db migrate -m "Initial migration"
-flask db upgrade
+.venv/bin/python seed_demo.py
 ```
 
 6. Run development server:
 ```bash
-python run.py
+.venv/bin/python run.py
 ```
+
+## Demo Logins
+
+After running `seed_demo.py`, the login page shows demo credentials for every role:
+
+| Role | Login | Password |
+|------|-------|----------|
+| Admin | `admin@demo.com` | `admin123` |
+| Teacher | `john@demo.com` | `teacher123` |
+| Student | `alice@demo.com` | `student123` |
+
+Set `SHOW_DEMO_CREDENTIALS=false` in production.
 
 ### Supabase Setup
 
@@ -97,12 +107,23 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/
 | Variable | Description |
 |----------|-------------|
 | `SECRET_KEY` | Flask secret key for sessions |
-| `DATABASE_URL` | PostgreSQL connection string |
+| `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `FLASK_ENV` | `development` or `production` |
+| `SHOW_DEMO_CREDENTIALS` | Set to `true` to show demo login cards |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | Email provider placeholders |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | Razorpay placeholders |
+
+## School Details
+
+Edit `school_details.json` to update the institution name, address, contact details, and logo path used by PDFs and shared templates.
+
+## Vercel Notes
+
+Add the values from `.env.example` in Vercel Project Settings. Use Supabase for `DATABASE_URL`, set a real `SECRET_KEY`, and keep `SHOW_DEMO_CREDENTIALS=true` if you want the demo cards visible on the deployed login page.
 
 ## Default Admin Login
 
-After running migrations, create an admin user:
+For a non-demo admin, create an admin user:
 ```python
 from app import create_app, db
 from app.models import User

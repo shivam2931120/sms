@@ -35,7 +35,7 @@
             <tbody>
                 {% for f in fees %}
                 <tr>
-                    <td>{{ f.description or 'Fee' }}</td>
+                    <td>{{ f.title or 'Fee' }}</td>
                     <td>₹{{ f.amount }}</td>
                     <td>{{ f.due_date.strftime('%Y-%m-%d') if f.due_date else 'N/A' }}</td>
                     <td><span

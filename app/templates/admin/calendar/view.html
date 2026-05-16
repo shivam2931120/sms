@@ -163,7 +163,10 @@
             events: '{{ url_for("admin.calendar_events") }}',
             eventClick: function (info) {
                 if (confirm('Delete event: ' + info.event.title + '?')) {
-                    fetch('{{ url_for("admin.delete_event", id=0) }}'.replace('0', info.event.id), { method: 'POST' })
+                    fetch('{{ url_for("admin.delete_event", id=0) }}'.replace('0', info.event.id), {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken }
+                    })
                         .then(() => calendar.refetchEvents());
                 }
             },
