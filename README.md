@@ -104,6 +104,8 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/
 
 ## Environment Variables
 
+Use `SETUP_VALUES.md` as the fill-in checklist for Supabase, Vercel, SMTP, Razorpay, and school details.
+
 | Variable | Description |
 |----------|-------------|
 | `SECRET_KEY` | Flask secret key for sessions |
