@@ -82,11 +82,13 @@ Put these in `.env` and Vercel Environment Variables:
 ```env
 FLASK_ENV=production
 FLASK_DEBUG=0
+AUTO_SETUP_DATABASE=false
 SHOW_DEMO_CREDENTIALS=true
 ```
 
 Notes:
 
+- Keep `AUTO_SETUP_DATABASE=false` for normal deployments. Temporarily set it to `true` only for first-time schema setup, then redeploy with it set back to `false`.
 - `SHOW_DEMO_CREDENTIALS=true` keeps the demo login cards visible.
 - Change it to `false` later if you want to hide demo credentials.
 
@@ -152,6 +154,7 @@ SECRET_KEY=
 DATABASE_URL=
 FLASK_ENV=production
 FLASK_DEBUG=0
+AUTO_SETUP_DATABASE=false
 SHOW_DEMO_CREDENTIALS=true
 ```
 

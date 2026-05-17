@@ -111,6 +111,7 @@ Use `SETUP_VALUES.md` as the fill-in checklist for Supabase, Vercel, SMTP, Razor
 | `SECRET_KEY` | Flask secret key for sessions |
 | `DATABASE_URL` | Supabase PostgreSQL connection string |
 | `FLASK_ENV` | `development` or `production` |
+| `AUTO_SETUP_DATABASE` | Keep `false`; set `true` only for one-time Vercel schema setup |
 | `SHOW_DEMO_CREDENTIALS` | Set to `true` to show demo login cards |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | Email provider placeholders |
 | `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` / `RAZORPAY_WEBHOOK_SECRET` | Razorpay placeholders |
