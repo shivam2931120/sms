@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header">
-    <h2><i class="bi bi-file-earmark-plus"></i> Add Exam</h2>
+    <h2><i class="bi bi-file-earmark-plus"></i> {{ 'Edit' if exam else 'Add' }} Exam</h2>
 </div>
 <div class="card">
     <div class="card-body">
@@ -9,11 +9,13 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Exam Name</label>
-                    <input type="text" class="form-control" name="name" placeholder="e.g., Midterm 2024" required>
+                    <input type="text" class="form-control" name="name" value="{{ exam.name if exam else '' }}"
+                        placeholder="e.g., Midterm 2024" required>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Date</label>
-                    <input type="date" class="form-control" name="date">
+                    <input type="date" class="form-control" name="date"
+                        value="{{ exam.date.strftime('%Y-%m-%d') if exam and exam.date else '' }}">
                 </div>
                 <div class="col-12 mt-4">
                     <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save</button>

@@ -12,8 +12,14 @@
                 <div class="card-header"><i class="bi bi-person-badge"></i> Student</div>
                 <div class="card-body">
                     <div class="text-center mb-4">
+                        {% if student.photo_file and student.photo_file != 'default.jpg' %}
                         <img src="{{ url_for('static', filename='uploads/photos/' + (student.photo_file or 'default.jpg')) }}"
                             alt="Student photo" class="profile-photo">
+                        {% else %}
+                        <div class="profile-photo profile-photo-placeholder" aria-label="Student photo placeholder">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        {% endif %}
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Photo</label>

@@ -1,8 +1,40 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header">
-    <h2><i class="bi bi-currency-dollar"></i> Fees Management</h2>
+<div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-center gap-3">
+    <div>
+        <h2><i class="bi bi-currency-dollar"></i> Fees Management</h2>
+        <p class="text-muted mb-0">Create, track, and export student fee records</p>
+    </div>
+    <div class="d-flex gap-2 w-100 w-md-auto">
+        <a href="{{ url_for('admin.export_fees', status=status_filter) if status_filter else url_for('admin.export_fees') }}" class="btn btn-outline-light flex-grow-1 flex-md-grow-0">
+            <i class="bi bi-download"></i> Export
+        </a>
+        <a href="{{ url_for('admin.add_fee') }}" class="btn btn-primary flex-grow-1 flex-md-grow-0">
+            <i class="bi bi-plus-lg"></i> Add Fee
+        </a>
+    </div>
 </div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="GET" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    <option value="">All statuses</option>
+                    {% for status in statuses %}
+                    <option value="{{ status }}" {% if status_filter == status %}selected{% endif %}>{{ status }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filter</button>
+                <a href="{{ url_for('admin.fees_management') }}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body p-0">
         {% if fees %}
@@ -15,6 +47,8 @@
                         <th>Amount</th>
                         <th>Due Date</th>
                         <th>Status</th>
+                        <th>Paid Date</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -22,11 +56,23 @@
                     <tr>
                         <td>{{ f.student.first_name }} {{ f.student.last_name }}</td>
                         <td>{{ f.title }}</td>
-                        <td>${{ f.amount }}</td>
+                        <td>{{ config.RAZORPAY_CURRENCY }} {{ "%.2f"|format(f.amount) }}</td>
                         <td>{{ f.due_date.strftime('%Y-%m-%d') if f.due_date else '-' }}</td>
-                        <td><span
-                                class="badge {% if f.status == 'Paid' %}bg-success{% elif f.status == 'Pending' %}bg-warning{% else %}bg-danger{% endif %}">{{
-                                f.status }}</span></td>
+                        <td>
+                            <span class="badge {% if f.status == 'Paid' %}bg-success{% elif f.status == 'Pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ f.status }}
+                            </span>
+                        </td>
+                        <td>{{ f.paid_date.strftime('%Y-%m-%d') if f.paid_date else '-' }}</td>
+                        <td>
+                            <a href="{{ url_for('admin.edit_fee', id=f.id) }}" class="btn btn-sm btn-outline-light">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form action="{{ url_for('admin.delete_fee', id=f.id) }}" method="POST" class="d-inline"
+                                onsubmit="return confirm('Delete this fee record?');">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -35,6 +81,7 @@
         {% else %}
         <div class="empty-state"><i class="bi bi-inbox"></i>
             <p>No fee records</p>
+            <a href="{{ url_for('admin.add_fee') }}" class="btn btn-primary">Add First Fee</a>
         </div>
         {% endif %}
     </div>

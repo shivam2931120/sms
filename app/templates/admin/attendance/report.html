@@ -62,8 +62,7 @@
                         <td>{{ a.date.strftime('%Y-%m-%d') }}</td>
                         <td><code>{{ a.student.roll_no }}</code></td>
                         <td>{{ a.student.first_name }} {{ a.student.last_name }}</td>
-                        <td>{{ a.student.enrolled_class.grade }}-{{ a.student.enrolled_class.section if
-                            a.student.enrolled_class else 'N/A' }}</td>
+                        <td>{% if a.student.enrolled_class %}{{ a.student.enrolled_class.grade }}-{{ a.student.enrolled_class.section }}{% else %}N/A{% endif %}</td>
                         <td>
                             <span
                                 class="badge {% if a.status == 'Present' %}bg-success{% elif a.status == 'Late' %}bg-warning{% else %}bg-danger{% endif %}">

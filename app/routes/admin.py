@@ -1,14 +1,40 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, Response
 from flask_login import login_required, current_user
-from app.models import User, Student, Teacher, Class, Subject, Exam, Attendance, Fee, Announcement, Book, BookIssue, TimeTable, Department, Event, Homework, IDCard
+from app.models import User, Student, Teacher, Class, Subject, Exam, Attendance, Fee, Announcement, Book, BookIssue, TimeTable, Department, Event, Homework, IDCard, Mark, Permission, RolePermission
 from app import db
 from app.school import get_school_details
 from app.uploads import save_student_photo
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import io
 import csv
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
+
+FEE_STATUSES = ('Pending', 'Paid', 'Overdue')
+
+PERMISSION_DEFINITIONS = [
+    ('view_students', 'View Students'),
+    ('edit_students', 'Add/Edit Students'),
+    ('delete_students', 'Delete Students'),
+    ('view_teachers', 'View Teachers'),
+    ('edit_teachers', 'Add/Edit Teachers'),
+    ('view_attendance', 'View Attendance'),
+    ('mark_attendance', 'Mark Attendance'),
+    ('view_marks', 'View Marks'),
+    ('enter_marks', 'Enter Marks'),
+    ('view_fees', 'View Fees'),
+    ('manage_fees', 'Manage Fees'),
+    ('view_library', 'View Library'),
+    ('manage_library', 'Manage Library'),
+    ('view_analytics', 'View Analytics'),
+    ('manage_settings', 'Manage Settings'),
+]
+
+DEFAULT_ROLE_PERMISSIONS = {
+    'admin': [permission[0] for permission in PERMISSION_DEFINITIONS],
+    'teacher': ['view_students', 'view_attendance', 'mark_attendance', 'view_marks', 'enter_marks'],
+    'student': ['view_attendance', 'view_marks', 'view_fees'],
+}
 
 def admin_required(f):
     from functools import wraps
@@ -19,6 +45,68 @@ def admin_required(f):
             return redirect(url_for('main.index'))
         return f(*args, **kwargs)
     return decorated_function
+
+
+def parse_date_value(value, label='Date', required=False):
+    if not value:
+        if required:
+            return None, f'{label} is required.'
+        return None, None
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date(), None
+    except ValueError:
+        return None, f'{label} must be a valid date.'
+
+
+def parse_float_value(value, label, required=False):
+    if value in (None, ''):
+        if required:
+            return None, f'{label} is required.'
+        return None, None
+    try:
+        return float(value), None
+    except ValueError:
+        return None, f'{label} must be a valid number.'
+
+
+def return_issued_books_for_student(student_id):
+    active_issues = BookIssue.query.filter_by(student_id=student_id, status='issued').all()
+    for issue in active_issues:
+        issue.status = 'returned'
+        issue.return_date = datetime.now()
+        if issue.book:
+            issue.book.available_copies = min(issue.book.total_copies, issue.book.available_copies + 1)
+
+
+def ensure_permission_records():
+    permission_by_name = {permission.name: permission for permission in Permission.query.all()}
+    created = False
+    for code, description in PERMISSION_DEFINITIONS:
+        if code not in permission_by_name:
+            permission = Permission(name=code, description=description)
+            db.session.add(permission)
+            permission_by_name[code] = permission
+            created = True
+    db.session.flush()
+    if created:
+        db.session.commit()
+    return permission_by_name
+
+
+def get_role_permissions(permission_by_name):
+    if RolePermission.query.count() == 0:
+        for role, permissions in DEFAULT_ROLE_PERMISSIONS.items():
+            for permission_name in permissions:
+                db.session.add(RolePermission(role=role, permission_id=permission_by_name[permission_name].id))
+        db.session.commit()
+
+    roles = {'admin': [], 'teacher': [], 'student': []}
+    role_permissions = RolePermission.query.join(Permission).all()
+    for role_permission in role_permissions:
+        if role_permission.role in roles:
+            roles[role_permission.role].append(role_permission.permission.name)
+    roles['admin'] = DEFAULT_ROLE_PERMISSIONS['admin']
+    return roles
 
 # ============================================
 # DASHBOARD WITH CHARTS DATA
@@ -162,6 +250,12 @@ def edit_student(id):
 def delete_student(id):
     student = Student.query.get_or_404(id)
     user = db.session.get(User, student.user_id)
+    return_issued_books_for_student(student.id)
+    BookIssue.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    IDCard.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    Attendance.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    Mark.query.filter_by(student_id=student.id).delete(synchronize_session=False)
+    Fee.query.filter_by(student_id=student.id).delete(synchronize_session=False)
     db.session.delete(student)
     if user:
         db.session.delete(user)
@@ -251,6 +345,9 @@ def edit_teacher(id):
 @admin_required
 def delete_teacher(id):
     teacher = Teacher.query.get_or_404(id)
+    if teacher.classes_managed or teacher.assigned_homework or teacher.class_incharge or teacher.headed_department:
+        flash('Cannot delete a teacher who is assigned to classes, timetable entries, departments, or homework.', 'warning')
+        return redirect(url_for('admin.teachers'))
     user = db.session.get(User, teacher.user_id)
     db.session.delete(teacher)
     if user:
@@ -311,6 +408,9 @@ def edit_class(id):
 @admin_required
 def delete_class(id):
     cls = Class.query.get_or_404(id)
+    if cls.students or cls.time_table or cls.homework_list:
+        flash('Cannot delete a class with students, timetable entries, or homework assigned.', 'warning')
+        return redirect(url_for('admin.classes'))
     db.session.delete(cls)
     db.session.commit()
     flash('Class deleted successfully!', 'success')
@@ -364,6 +464,9 @@ def edit_subject(id):
 @admin_required
 def delete_subject(id):
     subject = Subject.query.get_or_404(id)
+    if subject.marks or subject.time_table or subject.homework_list:
+        flash('Cannot delete a subject with marks, timetable entries, or homework assigned.', 'warning')
+        return redirect(url_for('admin.subjects'))
     db.session.delete(subject)
     db.session.commit()
     flash('Subject deleted successfully!', 'success')
@@ -384,15 +487,51 @@ def exams():
 @admin_required
 def add_exam():
     if request.method == 'POST':
+        exam_date, error = parse_date_value(request.form.get('date'), 'Exam date')
+        if error:
+            flash(error, 'danger')
+            return render_template('admin/exams/form.html', exam=None)
         exam = Exam(
             name=request.form['name'],
-            date=datetime.strptime(request.form['date'], '%Y-%m-%d') if request.form.get('date') else None
+            date=exam_date
         )
         db.session.add(exam)
         db.session.commit()
         flash('Exam added successfully!', 'success')
         return redirect(url_for('admin.exams'))
     return render_template('admin/exams/form.html', exam=None)
+
+
+@admin.route('/exams/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_exam(id):
+    exam = Exam.query.get_or_404(id)
+    if request.method == 'POST':
+        exam_date, error = parse_date_value(request.form.get('date'), 'Exam date')
+        if error:
+            flash(error, 'danger')
+            return render_template('admin/exams/form.html', exam=exam)
+        exam.name = request.form['name']
+        exam.date = exam_date
+        db.session.commit()
+        flash('Exam updated successfully!', 'success')
+        return redirect(url_for('admin.exams'))
+    return render_template('admin/exams/form.html', exam=exam)
+
+
+@admin.route('/exams/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_exam(id):
+    exam = Exam.query.get_or_404(id)
+    if exam.marks:
+        flash('Cannot delete an exam with marks recorded.', 'warning')
+        return redirect(url_for('admin.exams'))
+    db.session.delete(exam)
+    db.session.commit()
+    flash('Exam deleted successfully!', 'success')
+    return redirect(url_for('admin.exams'))
 
 # ============================================
 # ATTENDANCE MARKING SYSTEM
@@ -405,12 +544,16 @@ def attendance_report():
     departments = Department.query.all()
     selected_class = request.args.get('class_id')
     selected_date = request.args.get('date', datetime.now().strftime('%Y-%m-%d'))
+    date_obj, error = parse_date_value(selected_date, 'Attendance date') if selected_date else (None, None)
+    if error:
+        flash(error, 'danger')
+        return redirect(url_for('admin.attendance_report'))
     
     query = Attendance.query
     if selected_class:
         query = query.join(Student).filter(Student.class_id == selected_class)
-    if selected_date:
-        query = query.filter(Attendance.date == datetime.strptime(selected_date, '%Y-%m-%d').date())
+    if date_obj:
+        query = query.filter(Attendance.date == date_obj)
     
     attendance = query.order_by(Attendance.date.desc()).limit(100).all()
     return render_template('admin/attendance/report.html', 
@@ -432,14 +575,20 @@ def mark_attendance():
     
     if selected_class:
         students = Student.query.filter_by(class_id=selected_class).order_by(Student.roll_no).all()
-        date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
+        date_obj, error = parse_date_value(selected_date, 'Attendance date', required=True)
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('admin.mark_attendance'))
         for s in students:
             att = Attendance.query.filter_by(student_id=s.id, date=date_obj).first()
             if att:
                 existing_attendance[s.id] = att.status
     
     if request.method == 'POST':
-        date_obj = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        date_obj, error = parse_date_value(request.form.get('date'), 'Attendance date', required=True)
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('admin.mark_attendance'))
         class_id = request.form['class_id']
         students = Student.query.filter_by(class_id=class_id).all()
         
@@ -475,9 +624,17 @@ def export_attendance():
     if class_id:
         query = query.filter(Student.class_id == class_id)
     if date_from:
-        query = query.filter(Attendance.date >= datetime.strptime(date_from, '%Y-%m-%d').date())
+        date_from_obj, error = parse_date_value(date_from, 'Start date')
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('admin.attendance_report'))
+        query = query.filter(Attendance.date >= date_from_obj)
     if date_to:
-        query = query.filter(Attendance.date <= datetime.strptime(date_to, '%Y-%m-%d').date())
+        date_to_obj, error = parse_date_value(date_to, 'End date')
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('admin.attendance_report'))
+        query = query.filter(Attendance.date <= date_to_obj)
     
     attendance = query.order_by(Attendance.date.desc()).all()
     
@@ -503,11 +660,102 @@ def export_attendance():
 @login_required
 @admin_required
 def fees_management():
-    fees = Fee.query.order_by(Fee.due_date.desc()).all()
     status_filter = request.args.get('status')
-    if status_filter:
-        fees = Fee.query.filter_by(status=status_filter).order_by(Fee.due_date.desc()).all()
-    return render_template('admin/fees/list.html', fees=fees, status_filter=status_filter)
+    query = Fee.query
+    if status_filter in FEE_STATUSES:
+        query = query.filter_by(status=status_filter)
+    else:
+        status_filter = None
+    fees = query.order_by(Fee.due_date.desc()).all()
+    return render_template('admin/fees/list.html', fees=fees, status_filter=status_filter, statuses=FEE_STATUSES)
+
+
+def render_fee_form(fee=None):
+    students = Student.query.order_by(Student.roll_no, Student.first_name).all()
+    return render_template('admin/fees/form.html', fee=fee, students=students, statuses=FEE_STATUSES)
+
+
+def apply_fee_form(fee):
+    student_id = request.form.get('student_id', type=int)
+    student = db.session.get(Student, student_id) if student_id else None
+    if not student:
+        return 'Please select a valid student.'
+
+    amount, error = parse_float_value(request.form.get('amount'), 'Amount', required=True)
+    if error:
+        return error
+    if amount < 0:
+        return 'Amount cannot be negative.'
+
+    due_date, error = parse_date_value(request.form.get('due_date'), 'Due date')
+    if error:
+        return error
+
+    paid_date, error = parse_date_value(request.form.get('paid_date'), 'Paid date')
+    if error:
+        return error
+
+    status = request.form.get('status') or 'Pending'
+    if status not in FEE_STATUSES:
+        return 'Invalid fee status.'
+
+    title = (request.form.get('title') or '').strip()
+    if not title:
+        return 'Title is required.'
+
+    fee.student_id = student.id
+    fee.title = title
+    fee.amount = amount
+    fee.due_date = due_date
+    fee.status = status
+    fee.paid_date = paid_date or (date.today() if status == 'Paid' else None)
+    if status != 'Paid':
+        fee.paid_date = None
+    return None
+
+
+@admin.route('/fees/add', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def add_fee():
+    if request.method == 'POST':
+        fee = Fee()
+        error = apply_fee_form(fee)
+        if error:
+            flash(error, 'danger')
+            return render_fee_form(fee)
+        db.session.add(fee)
+        db.session.commit()
+        flash('Fee record added successfully!', 'success')
+        return redirect(url_for('admin.fees_management'))
+    return render_fee_form()
+
+
+@admin.route('/fees/edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def edit_fee(id):
+    fee = Fee.query.get_or_404(id)
+    if request.method == 'POST':
+        error = apply_fee_form(fee)
+        if error:
+            flash(error, 'danger')
+            return render_fee_form(fee)
+        db.session.commit()
+        flash('Fee record updated successfully!', 'success')
+        return redirect(url_for('admin.fees_management'))
+    return render_fee_form(fee)
+
+
+@admin.route('/fees/delete/<int:id>', methods=['POST'])
+@login_required
+@admin_required
+def delete_fee(id):
+    fee = Fee.query.get_or_404(id)
+    db.session.delete(fee)
+    db.session.commit()
+    flash('Fee record deleted successfully!', 'success')
+    return redirect(url_for('admin.fees_management'))
 
 @admin.route('/fees/export')
 @login_required
@@ -515,7 +763,7 @@ def fees_management():
 def export_fees():
     status = request.args.get('status')
     query = Fee.query
-    if status:
+    if status in FEE_STATUSES:
         query = query.filter_by(status=status)
     fees = query.order_by(Fee.due_date.desc()).all()
     
@@ -559,10 +807,7 @@ def approve_user(id):
     user = User.query.get_or_404(id)
     user.is_approved = True
     db.session.commit()
-    
-    # Send email notification placeholder
-    # send_approval_email(user.email)
-    
+
     flash(f'User {user.username} approved successfully!', 'success')
     return redirect(url_for('admin.approvals'))
 
@@ -697,9 +942,12 @@ def issue_book():
 @admin_required
 def return_book(id):
     issue = BookIssue.query.get_or_404(id)
+    if issue.status == 'returned':
+        flash('Book issue is already marked as returned.', 'info')
+        return redirect(url_for('admin.library_issues'))
     issue.status = 'returned'
     issue.return_date = datetime.now()
-    issue.book.available_copies += 1
+    issue.book.available_copies = min(issue.book.total_copies, issue.book.available_copies + 1)
     db.session.commit()
     flash('Book returned!', 'success')
     return redirect(url_for('admin.library_issues'))
@@ -796,7 +1044,8 @@ def report_card(student_id):
     p.setFont("Helvetica-Bold", 12)
     p.drawString(50, height - 120, f"Name: {student.first_name} {student.last_name}")
     p.drawString(50, height - 140, f"Roll No: {student.roll_no}")
-    p.drawString(50, height - 160, f"Class: {student.enrolled_class.grade}-{student.enrolled_class.section}" if student.enrolled_class else "N/A")
+    class_name = f"{student.enrolled_class.grade}-{student.enrolled_class.section}" if student.enrolled_class else "N/A"
+    p.drawString(50, height - 160, f"Class: {class_name}")
     
     # Marks Table
     y = height - 215
@@ -811,7 +1060,7 @@ def report_card(student_id):
     total = 0
     count = 0
     for m in marks:
-        percentage = (m.score_obtained / m.max_score) * 100
+        percentage = (m.score_obtained / m.max_score) * 100 if m.max_score else 0
         grade = 'A+' if percentage >= 90 else 'A' if percentage >= 80 else 'B' if percentage >= 70 else 'C' if percentage >= 60 else 'D' if percentage >= 50 else 'F'
         p.drawString(50, y, m.subject.name)
         p.drawString(200, y, m.exam.name)
@@ -939,6 +1188,9 @@ def edit_department(id):
 @admin_required
 def delete_department(id):
     dept = Department.query.get_or_404(id)
+    if dept.students or dept.teachers or dept.classes or dept.subjects or dept.head_teacher:
+        flash('Cannot delete a department while students, teachers, classes, subjects, or a head teacher are assigned.', 'warning')
+        return redirect(url_for('admin.departments'))
     db.session.delete(dept)
     db.session.commit()
     flash('Department deleted!', 'success')
@@ -952,7 +1204,7 @@ def delete_department(id):
 @admin_required
 def homework():
     homework = Homework.query.order_by(Homework.due_date.desc()).all()
-    return render_template('admin/homework/list.html', homework=homework)
+    return render_template('admin/homework/list.html', homework=homework, today=date.today())
 
 @admin.route('/homework/add', methods=['GET', 'POST'])
 @login_required
@@ -962,13 +1214,17 @@ def add_homework():
     subjects = Subject.query.all()
     teachers = Teacher.query.all()
     if request.method == 'POST':
+        due_date, error = parse_date_value(request.form.get('due_date'), 'Due date', required=True)
+        if error:
+            flash(error, 'danger')
+            return render_template('admin/homework/form.html', homework=None, classes=classes, subjects=subjects, teachers=teachers)
         hw = Homework(
             class_id=request.form['class_id'],
             subject_id=request.form['subject_id'],
             teacher_id=request.form['teacher_id'],
             title=request.form['title'],
             description=request.form.get('description'),
-            due_date=datetime.strptime(request.form['due_date'], '%Y-%m-%d')
+            due_date=due_date
         )
         db.session.add(hw)
         db.session.commit()
@@ -1044,9 +1300,9 @@ def export_homework():
     for h in homework:
         writer.writerow([
             h.title,
-            f"{h.class_info.grade}-{h.class_info.section}",
-            h.subject.name,
-            f"{h.teacher.first_name} {h.teacher.last_name}",
+            f"{h.class_info.grade}-{h.class_info.section}" if h.class_info else 'N/A',
+            h.subject.name if h.subject else 'N/A',
+            f"{h.teacher.first_name} {h.teacher.last_name}" if h.teacher else 'N/A',
             h.due_date.strftime('%Y-%m-%d'),
             h.assigned_date.strftime('%Y-%m-%d') if h.assigned_date else 'N/A'
         ])
@@ -1157,7 +1413,7 @@ def performance_analytics():
     for s in subjects:
         marks = Mark.query.filter_by(subject_id=s.id).all()
         if marks:
-            avg = sum([m.score_obtained / m.max_score * 100 for m in marks]) / len(marks)
+            avg = sum([(m.score_obtained / m.max_score * 100) if m.max_score else 0 for m in marks]) / len(marks)
             subject_data.append({'name': s.name, 'average': round(avg, 1)})
     
     # Top 10 students by average
@@ -1166,7 +1422,7 @@ def performance_analytics():
     for st in students:
         marks = st.marks
         if marks:
-            avg = sum([m.score_obtained / m.max_score * 100 for m in marks]) / len(marks)
+            avg = sum([(m.score_obtained / m.max_score * 100) if m.max_score else 0 for m in marks]) / len(marks)
             student_scores.append({
                 'name': f"{st.first_name} {st.last_name}",
                 'roll_no': st.roll_no,
@@ -1180,7 +1436,7 @@ def performance_analytics():
     from app.models import Mark
     all_marks = Mark.query.all()
     for m in all_marks:
-        pct = (m.score_obtained / m.max_score) * 100
+        pct = (m.score_obtained / m.max_score) * 100 if m.max_score else 0
         if pct >= 90: grade_dist['A+'] += 1
         elif pct >= 80: grade_dist['A'] += 1
         elif pct >= 70: grade_dist['B'] += 1
@@ -1252,38 +1508,23 @@ def department_analytics():
 @login_required
 @admin_required
 def permissions():
-    # Define available permissions
-    all_permissions = [
-        ('view_students', 'View Students'),
-        ('edit_students', 'Add/Edit Students'),
-        ('delete_students', 'Delete Students'),
-        ('view_teachers', 'View Teachers'),
-        ('edit_teachers', 'Add/Edit Teachers'),
-        ('view_attendance', 'View Attendance'),
-        ('mark_attendance', 'Mark Attendance'),
-        ('view_marks', 'View Marks'),
-        ('enter_marks', 'Enter Marks'),
-        ('view_fees', 'View Fees'),
-        ('manage_fees', 'Manage Fees'),
-        ('view_library', 'View Library'),
-        ('manage_library', 'Manage Library'),
-        ('view_analytics', 'View Analytics'),
-        ('manage_settings', 'Manage Settings'),
-    ]
-    
-    # Define roles and their default permissions
-    roles = {
-        'admin': [p[0] for p in all_permissions],  # Admin has all
-        'teacher': ['view_students', 'view_attendance', 'mark_attendance', 'view_marks', 'enter_marks'],
-        'student': ['view_attendance', 'view_marks', 'view_fees']
-    }
+    permission_by_name = ensure_permission_records()
     
     if request.method == 'POST':
-        # In a real app, you'd save these to a database table
+        for role in ('teacher', 'student'):
+            RolePermission.query.filter_by(role=role).delete()
+            for permission_name in permission_by_name:
+                if request.form.get(f'{role}_{permission_name}') == 'on':
+                    db.session.add(RolePermission(role=role, permission_id=permission_by_name[permission_name].id))
+        RolePermission.query.filter_by(role='admin').delete()
+        for permission_name in DEFAULT_ROLE_PERMISSIONS['admin']:
+            db.session.add(RolePermission(role='admin', permission_id=permission_by_name[permission_name].id))
+        db.session.commit()
         flash('Permissions updated successfully!', 'success')
         return redirect(url_for('admin.permissions'))
-    
-    return render_template('admin/permissions.html', all_permissions=all_permissions, roles=roles)
+
+    roles = get_role_permissions(permission_by_name)
+    return render_template('admin/permissions.html', all_permissions=PERMISSION_DEFINITIONS, roles=roles)
 
 # ============================================
 # NOTICE BOARD / ANNOUNCEMENTS API

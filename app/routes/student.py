@@ -181,4 +181,4 @@ def homework():
     if response:
         return response
     homework = Homework.query.filter_by(class_id=student.class_id).order_by(Homework.due_date.desc()).limit(20).all()
-    return render_template('student/homework.html', student=student, homework=homework)
+    return render_template('student/homework.html', student=student, homework=homework, today=date.today())

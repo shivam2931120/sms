@@ -1,8 +1,15 @@
+import os
+
 from app import create_app, db
 from sqlalchemy import text
 from sqlalchemy import inspect
 
 app = create_app()
+
+
+def auto_setup_enabled():
+    return os.environ.get('AUTO_SETUP_DATABASE', '').lower() in {'1', 'true', 'yes', 'on'}
+
 
 def patch_database_schema():
     # Auto-migration for Vercel/Production.
@@ -26,7 +33,8 @@ def patch_database_schema():
             print(f"Database patch warning: {e}")
 
 
-patch_database_schema()
+if auto_setup_enabled():
+    patch_database_schema()
 
 if __name__ == '__main__':
     app.run(debug=True)

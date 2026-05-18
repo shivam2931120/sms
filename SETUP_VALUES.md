@@ -175,13 +175,13 @@ RAZORPAY_CURRENCY=INR
 
 ## 8. Local Development
 
-Create a local `.env` from `.env.example`:
+Create a local `.env` from `.env.example`. The example uses SQLite so a local demo can run before you add Supabase:
 
 ```bash
 cp .env.example .env
 ```
 
-Then fill `.env` with your real values. `.env` is ignored by Git and should stay local.
+Keep `DATABASE_URL=sqlite:///dev.db` for local development, or replace it with your Supabase URL when testing PostgreSQL. `.env` is ignored by Git and should stay local.
 
 Run the app:
 

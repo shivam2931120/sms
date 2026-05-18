@@ -19,7 +19,7 @@
             </thead>
             <tbody>
                 {% for m in data.marks %}
-                {% set pct = (m.score_obtained / m.max_score * 100)|round(1) %}
+                {% set pct = ((m.score_obtained / m.max_score * 100) if m.max_score else 0)|round(1) %}
                 <tr>
                     <td>{{ m.subject.name }}</td>
                     <td>{{ m.score_obtained }} / {{ m.max_score }}</td>

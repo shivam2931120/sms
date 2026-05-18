@@ -31,14 +31,14 @@
                 </thead>
                 <tbody>
                     {% for h in homework %}
-                    {% set today = import_datetime.datetime.now().date() if import_datetime is defined else none %}
+                    {% set is_overdue = h.due_date and h.due_date < today %}
                     <tr>
                         <td><strong>{{ h.title }}</strong></td>
-                        <td>{{ h.class_info.grade }}-{{ h.class_info.section }}</td>
-                        <td>{{ h.subject.name }}</td>
-                        <td>{{ h.teacher.first_name }}</td>
+                        <td>{% if h.class_info %}{{ h.class_info.grade }}-{{ h.class_info.section }}{% else %}N/A{% endif %}</td>
+                        <td>{{ h.subject.name if h.subject else 'N/A' }}</td>
+                        <td>{{ h.teacher.first_name if h.teacher else 'N/A' }}</td>
                         <td><span
-                                class="badge bg-{{ 'danger' if h.due_date and h.due_date < h.assigned_date.date() else 'success' }}">{{
+                                class="badge bg-{{ 'danger' if is_overdue else 'success' }}">{{
                                 h.due_date.strftime('%Y-%m-%d') if h.due_date else '-' }}</span></td>
                         <td>
                             <form action="{{ url_for('admin.delete_homework', id=h.id) }}" method="POST"

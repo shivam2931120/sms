@@ -802,6 +802,15 @@ body.public-layout {
     width: 150px;
 }
 
+.profile-photo-placeholder {
+    align-items: center;
+    background: var(--bg-input);
+    color: var(--text-muted);
+    display: inline-flex;
+    font-size: 4rem;
+    justify-content: center;
+}
+
 .profile-meta {
     display: grid;
     gap: 0.75rem;

@@ -4,6 +4,7 @@ from app.models import Fee
 from app import db
 from app.school import get_school_details
 from fpdf import FPDF
+from datetime import date
 import io
 
 fees_bp = Blueprint('fees', __name__, url_prefix='/fees')
@@ -14,17 +15,23 @@ def ensure_fee_access(fee):
     if current_user.role != 'student' or not fee.student or fee.student.user_id != current_user.id:
         abort(403)
 
+def fee_return_endpoint():
+    return 'admin.fees_management' if current_user.role == 'admin' else 'student.fees'
+
 @fees_bp.route('/pay/<int:fee_id>', methods=['POST'])
 @login_required
 def pay_fee(fee_id):
     fee = Fee.query.get_or_404(fee_id)
     ensure_fee_access(fee)
-    # Simulate payment logic
-    fee.status = 'Paid'
-    fee.paid_date = db.func.now()
-    db.session.commit()
-    flash('Fee paid successfully', 'success')
-    return redirect(url_for('student.dashboard'))
+    if fee.status == 'Paid':
+        flash('Fee is already marked as paid.', 'info')
+    else:
+        # Payment capture is currently simulated; keep persisted data consistent.
+        fee.status = 'Paid'
+        fee.paid_date = date.today()
+        db.session.commit()
+        flash('Fee paid successfully.', 'success')
+    return redirect(url_for(fee_return_endpoint()))
 
 @fees_bp.route('/receipt/<int:fee_id>')
 @login_required
@@ -33,7 +40,7 @@ def download_receipt(fee_id):
     ensure_fee_access(fee)
     if fee.status != 'Paid':
         flash('Fee not paid yet', 'warning')
-        return redirect(url_for('student.dashboard'))
+        return redirect(url_for(fee_return_endpoint()))
         
     # Generate PDF
     school = get_school_details()

@@ -50,8 +50,7 @@
                             <span class="badge bg-secondary">Not Assigned</span>
                             {% endif %}
                         </td>
-                        <td>{{ s.enrolled_class.grade }}-{{ s.enrolled_class.section if s.enrolled_class else 'N/A' }}
-                        </td>
+                        <td>{% if s.enrolled_class %}{{ s.enrolled_class.grade }}-{{ s.enrolled_class.section }}{% else %}N/A{% endif %}</td>
                         <td>{{ s.phone or s.parent_phone or '-' }}</td>
                         <td>{{ s.parent_name or '-' }}</td>
                         <td>

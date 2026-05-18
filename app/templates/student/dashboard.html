@@ -65,11 +65,12 @@
                     </thead>
                     <tbody>
                         {% for m in recent_marks %}
+                        {% set pct = (m.score_obtained / m.max_score * 100) if m.max_score else 0 %}
                         <tr>
                             <td>{{ m.subject.name }}</td>
                             <td>{{ m.exam.name if m.exam else 'N/A' }}</td>
                             <td><span
-                                    class="badge bg-{{ 'success' if m.score_obtained/m.max_score*100 >= 60 else 'warning' }}">{{
+                                    class="badge bg-{{ 'success' if pct >= 60 else 'warning' }}">{{
                                     m.score_obtained }}/{{ m.max_score }}</span></td>
                         </tr>
                         {% endfor %}

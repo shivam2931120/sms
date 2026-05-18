@@ -17,7 +17,8 @@
             </thead>
             <tbody>
                 {% for h in homework %}
-                {% set is_overdue = h.due_date and h.due_date < h.assigned_date.date() %} <tr>
+                {% set is_overdue = h.due_date and h.due_date < today %}
+                <tr>
                     <td>
                         <strong>{{ h.title }}</strong>
                         {% if h.description %}<br><small class="text-muted">{{ h.description[:50] }}...</small>{% endif

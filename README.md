@@ -59,7 +59,7 @@ pip install -r requirements.txt
 4. Set up environment variables:
 ```bash
 cp .env.example .env
-# Edit .env with your values
+# The example uses SQLite locally. Edit it when adding Supabase or production secrets.
 ```
 
 5. Initialize database:

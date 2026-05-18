@@ -28,9 +28,7 @@
             <button type="submit" class="btn btn-primary w-100">Sign In</button>
         </div>
         <div class="text-center mt-3">
-            <a href="{{ url_for('auth.register') }}" class="text-primary small fw-bold me-2">Create Account</a>
-            <span class="text-secondary small">|</span>
-            <a href="#" class="text-secondary small ms-2">Forgot Password?</a>
+            <a href="{{ url_for('auth.register') }}" class="text-primary small fw-bold">Create Account</a>
         </div>
     </form>
     {% if config.SHOW_DEMO_CREDENTIALS and demo_accounts %}

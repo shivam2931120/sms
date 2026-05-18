@@ -8,14 +8,14 @@
     <div class="col-md-6">
         <div class="card bg-success">
             <div class="card-body text-center">
-                <h2>₹{{ total_paid }}</h2><small>Total Paid</small>
+                <h2>{{ config.RAZORPAY_CURRENCY }} {{ "%.2f"|format(total_paid) }}</h2><small>Total Paid</small>
             </div>
         </div>
     </div>
     <div class="col-md-6">
         <div class="card bg-{{ 'danger' if total_due > 0 else 'secondary' }}">
             <div class="card-body text-center">
-                <h2>₹{{ total_due }}</h2><small>Pending</small>
+                <h2>{{ config.RAZORPAY_CURRENCY }} {{ "%.2f"|format(total_due) }}</h2><small>Pending</small>
             </div>
         </div>
     </div>
@@ -30,21 +30,37 @@
                     <th>Amount</th>
                     <th>Due Date</th>
                     <th>Status</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
                 {% for f in fees %}
                 <tr>
                     <td>{{ f.title or 'Fee' }}</td>
-                    <td>₹{{ f.amount }}</td>
+                    <td>{{ config.RAZORPAY_CURRENCY }} {{ "%.2f"|format(f.amount) }}</td>
                     <td>{{ f.due_date.strftime('%Y-%m-%d') if f.due_date else 'N/A' }}</td>
                     <td><span
                             class="badge bg-{{ 'success' if f.status == 'Paid' else 'warning' if f.status == 'Pending' else 'danger' }}">{{
                             f.status }}</span></td>
+                    <td>
+                        {% if f.status == 'Paid' %}
+                        <a href="{{ url_for('fees.download_receipt', fee_id=f.id) }}" class="btn btn-sm btn-outline-light">
+                            <i class="bi bi-download"></i> Receipt
+                        </a>
+                        {% elif f.status == 'Pending' or f.status == 'Overdue' %}
+                        <form action="{{ url_for('fees.pay_fee', fee_id=f.id) }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-primary">
+                                <i class="bi bi-credit-card"></i> Pay
+                            </button>
+                        </form>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="4" class="text-center py-4">No fee records</td>
+                    <td colspan="5" class="text-center py-4">No fee records</td>
                 </tr>
                 {% endfor %}
             </tbody>

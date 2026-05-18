@@ -35,6 +35,18 @@ def parse_int(value):
     except (TypeError, ValueError):
         return None
 
+def parse_date_value(value, label='Date'):
+    try:
+        return datetime.strptime(value, '%Y-%m-%d').date(), None
+    except (TypeError, ValueError):
+        return None, f'{label} must be a valid date.'
+
+def parse_float(value, label):
+    try:
+        return float(value), None
+    except (TypeError, ValueError):
+        return None, f'{label} must be a valid number.'
+
 @teacher.route('')
 @teacher.route('/')
 @login_required
@@ -112,14 +124,20 @@ def mark_attendance():
             flash('You are not assigned to that class.', 'danger')
             return redirect(url_for('teacher.mark_attendance'))
         students = Student.query.filter_by(class_id=selected_class).order_by(Student.roll_no).all()
-        date_obj = datetime.strptime(selected_date, '%Y-%m-%d').date()
+        date_obj, error = parse_date_value(selected_date, 'Attendance date')
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('teacher.mark_attendance'))
         for s in students:
             att = Attendance.query.filter_by(student_id=s.id, date=date_obj).first()
             if att:
                 existing_attendance[s.id] = att.status
     
     if request.method == 'POST':
-        date_obj = datetime.strptime(request.form['date'], '%Y-%m-%d').date()
+        date_obj, error = parse_date_value(request.form.get('date'), 'Attendance date')
+        if error:
+            flash(error, 'danger')
+            return redirect(url_for('teacher.mark_attendance'))
         class_id = request.form['class_id']
         class_id_int = parse_int(class_id)
         if class_id_int not in class_ids:
@@ -185,7 +203,10 @@ def enter_marks():
         class_id = request.form['class_id']
         subject_id = request.form['subject_id']
         exam_id = request.form['exam_id']
-        max_score = float(request.form.get('max_score', 100))
+        max_score, error = parse_float(request.form.get('max_score', 100), 'Max score')
+        if error or max_score <= 0:
+            flash(error or 'Max score must be greater than zero.', 'danger')
+            return redirect(url_for('teacher.enter_marks', class_id=class_id, subject_id=subject_id, exam_id=exam_id))
         class_id_int = parse_int(class_id)
         subject_id_int = parse_int(subject_id)
         if class_id_int not in class_ids or subject_id_int not in subject_ids:
@@ -197,7 +218,13 @@ def enter_marks():
         for student in students:
             score = request.form.get(f'score_{student.id}')
             if score:
-                score = float(score)
+                score, error = parse_float(score, f'Score for {student.first_name} {student.last_name}')
+                if error:
+                    flash(error, 'danger')
+                    return redirect(url_for('teacher.enter_marks', class_id=class_id, subject_id=subject_id, exam_id=exam_id))
+                if score < 0 or score > max_score:
+                    flash(f'Score for {student.first_name} {student.last_name} must be between 0 and {max_score}.', 'danger')
+                    return redirect(url_for('teacher.enter_marks', class_id=class_id, subject_id=subject_id, exam_id=exam_id))
                 existing = Mark.query.filter_by(student_id=student.id, subject_id=subject_id, exam_id=exam_id).first()
                 if existing:
                     existing.score_obtained = score
