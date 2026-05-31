@@ -69,6 +69,8 @@ Example shape:
 DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
 ```
 
+If Vercel logs show `tenant/user ... not found`, the deployed `DATABASE_URL` points to a Supabase project ref, pooler host, or database user that Supabase no longer recognizes. Copy a fresh connection string from the current Supabase project and replace the Vercel variable.
+
 Optional fallback, only if you want a second variable:
 
 ```env

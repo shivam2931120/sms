@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Unavailable - Shikshan</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/shikshan.png') }}">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <style>
+        body {
+            align-items: center;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .database-error-card {
+            background: rgba(15, 15, 15, 0.94);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            max-width: 520px;
+            padding: 2rem;
+            width: 100%;
+        }
+
+        .database-error-card h1 {
+            font-size: 1.6rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .database-error-card p {
+            color: var(--text-secondary);
+            margin-bottom: 0;
+        }
+
+        .database-error-card code {
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+
+<body>
+    <main class="database-error-card">
+        <h1>Database Unavailable</h1>
+        <p>The app cannot connect to the configured database. Check the deployed <code>DATABASE_URL</code> value and redeploy after updating it.</p>
+    </main>
+</body>
+
+</html>

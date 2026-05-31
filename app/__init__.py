@@ -1,10 +1,11 @@
 import hmac
 import secrets
 
-from flask import Flask, abort, request, session
+from flask import Flask, abort, render_template, request, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_migrate import Migrate
+from sqlalchemy.exc import SQLAlchemyError
 from config import Config
 
 # Initialize extensions
@@ -47,6 +48,12 @@ def create_app(config_class=Config):
         if not expected_token or not supplied_token or not hmac.compare_digest(expected_token, supplied_token):
             abort(400, description='Invalid CSRF token.')
         return None
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_database_error(error):
+        db.session.rollback()
+        app.logger.exception('Database operation failed.')
+        return render_template('errors/database.html'), 503
 
     # Import and register blueprints
     from app.routes.auth import auth
